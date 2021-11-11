@@ -44,4 +44,19 @@ void LowPassFilter<T>::update(){
     this->filtered_value = (this->filtered_value * filter_speed) + (this->value * (1. - filter_speed));
 }
 
+template <typename T>
+T LowPassFilter<T>::get(){
+    return this->filtered_value;
+}
+
+template <typename T>
+void LowPassFilter<T>::set(T new_value){
+    this->value = new_value;
+}
+
+template <typename T>
+void LowPassFilter<T>::set_filter_speed(float filter_speed){
+    this->filter_speed = filter_speed;
+}
+
 #endif /* LowPassFilter_hpp */

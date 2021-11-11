@@ -20,18 +20,20 @@ void ofApp::update(){
         while(osc_rec.getNextMessage(msg)){
             std::string data = msg.getArgAsString(0);
             ofJson parsed_string = nlohmann::json::parse(data);
+            
+            //if the number of tracks changed
             if (ATD.size() != parsed_string.size()){
                 auto track_count = parsed_string.size();
                 auto width_per_track = ofGetWidth() / track_count;
                 ATD.resize(track_count);
                 for (auto i = 0 ; i < track_count; i++){
                     AbletonTrackData<float>* current = &ATD[i];
-                    ofEventListener gain_listener(current->get_gain()->newListener([current](float& value){current->set_gain(value);}));
-                    ATD.at(i).add_listener(&gain_listener);
+                    current->get_gain()->addListener(current, &AbletonTrackData<float>::set_gain);
                     ATD.at(i).set_position(i * width_per_track, width_per_track);
                 }
             }
             
+            //set the levels for each track
             for (auto i = 0; i < parsed_string.size(); i++){
                 auto sub_array = parsed_string.at(i);
                 uint8_t idx = sub_array.at(0);
@@ -41,9 +43,12 @@ void ofApp::update(){
         }
     }
     
+    //update the lowpass filter
     for (int i = 0; i < ATD.size(); i++){
         ATD[i].update();
     }
+    
+    
 }
 
 //--------------------------------------------------------------
