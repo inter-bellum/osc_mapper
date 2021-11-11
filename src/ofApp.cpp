@@ -24,12 +24,11 @@ void ofApp::update(){
             //if the number of tracks changed
             if (ATD.size() != parsed_string.size()){
                 auto track_count = parsed_string.size();
-                auto width_per_track = ofGetWidth() / track_count;
                 ATD.resize(track_count);
                 for (auto i = 0 ; i < track_count; i++){
                     AbletonTrackData<float>* current = &ATD[i];
                     current->get_gain()->addListener(current, &AbletonTrackData<float>::set_gain);
-                    ATD.at(i).set_position(i * width_per_track, width_per_track);
+                    ATD.at(i).set_position(i, ofGetWidth() / track_count);
                 }
             }
             
@@ -37,7 +36,12 @@ void ofApp::update(){
             for (auto i = 0; i < parsed_string.size(); i++){
                 auto sub_array = parsed_string.at(i);
                 uint8_t idx = sub_array.at(0);
+                std::string name = sub_array.at(1);
                 float value = sub_array.at(2);
+                
+                if (!ATD.at(idx).compare_name(name)){
+                    ATD.at(idx).set_name(name);
+                }
                 ATD.at(idx).set_level(value);
             }
         }
