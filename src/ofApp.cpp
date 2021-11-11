@@ -6,11 +6,13 @@
 std::vector<AbletonTrackData<float>> ATD;
 
 ofxOscReceiver osc_rec;
+ofxOscSender osc_send;
 
 
 //--------------------------------------------------------------
 void ofApp::setup(){
     osc_rec.setup(6969);
+    osc_send.setup("localhost", 4201);
 }
 
 //--------------------------------------------------------------
@@ -47,9 +49,17 @@ void ofApp::update(){
         }
     }
     
+    
     //update the lowpass filter
     for (int i = 0; i < ATD.size(); i++){
         ATD[i].update();
+        
+        if (ATD[i].send_osc()){
+            ofxOscMessage msg;
+            msg.setAddress(ATD[i].get_address());
+            msg.addFloatArg(ATD[i].get_output());
+            osc_send.sendMessage(msg);
+        }
     }
     
     
@@ -58,6 +68,7 @@ void ofApp::update(){
 //--------------------------------------------------------------
 void ofApp::draw(){
     ofBackground(255, 255, 255);
+
     for (int i = 0; i < ATD.size(); i++){
         ATD[i].draw();
     }

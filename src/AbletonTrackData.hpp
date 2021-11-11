@@ -28,6 +28,8 @@ private:
     ofParameterGroup params;
     ofParameter<T> level;
     ofParameter<T> gain;
+    ofParameter<std::string> address_param;
+    bool bool_send_osc = false;
     
     ofParameterGroup thresh;
     ofParameter<T> lo;
@@ -58,6 +60,7 @@ public:
         thresh.add(hi.set("hi", 6., -70., 6.));
         
         params.add(thresh);
+        params.add(address_param.set("/none"));
         gui.setup(params);
     };
     
@@ -67,6 +70,9 @@ public:
     void draw();
     bool compare_name(std::string name);
     T get_level();
+    T get_output();
+    std::string get_address();
+    bool send_osc();
     void set_level(T new_level);
     void set_gain(float &new_gain);
     void set_filter_speed(float speed);
@@ -95,6 +101,11 @@ void AbletonTrackData<T>::update(){
     
     this->history[history_index] = output_value;
     history_index = (history_index + 1) % history_count;
+}
+
+template <typename T>
+T AbletonTrackData<T>::get_output(){
+    return output_value;
 }
 
 template <typename T>
@@ -135,6 +146,20 @@ T AbletonTrackData<T>::get_level(){
     } else {
         return -1;
     }
+}
+
+template <typename T>
+std::string AbletonTrackData<T>::get_address(){
+    return address_param.get();
+}
+
+template <typename T>
+bool AbletonTrackData<T>::send_osc(){
+    if (!bool_send_osc){
+        bool_send_osc = address_param.get().compare("/none") != 0;
+    }
+    
+    return bool_send_osc;
 }
 
 
