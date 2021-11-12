@@ -35,7 +35,7 @@ private:
     ofParameter<T> lo;
     ofParameter<T> hi;
     
-    ofEventListener* gain_listener;
+    ofEventListener* gain_listener = nullptr;
     
     static const int history_count = 50;
     T history[history_count];
@@ -79,19 +79,28 @@ public:
     void set_name(std::string name);
     void set_position(int index, int would_be_width);
     ofParameter<T>* get_gain();
+    bool has_gain_listener();
     T get_filtered();
 };
 
+
+
+//SET_GAIN
 template <typename T>
 void AbletonTrackData<T>::set_gain(float &new_gain){
     this->gain = new_gain;
 }
 
+
+//SET_LEVEL
 template <typename T>
 void AbletonTrackData<T>::set_level(T new_level){
     this->lpf.set(new_level);
 }
 
+
+
+//UPDATE
 template <typename T>
 void AbletonTrackData<T>::update(){
     this->lpf.update();
@@ -103,23 +112,31 @@ void AbletonTrackData<T>::update(){
     history_index = (history_index + 1) % history_count;
 }
 
+
+
+//GET_OUTPUT
 template <typename T>
 T AbletonTrackData<T>::get_output(){
     return output_value;
 }
 
+
+//DRAW
 template <typename T>
 void AbletonTrackData<T>::draw(){
     this->gui.draw();
     int offset = history_index;
     int rect_width = (width / (float)history_count);
     ofSetColor(0);
+    ofDrawBitmapString("Out: "+ ofToString(output_value), this->x + 10,  + this->y + this->height - 80);
     
     for (int i = 0; i < history_count; i++){
         ofDrawRectangle(x + (i * rect_width), y+ height, rect_width, -(history[(i + offset) % history_count] * 10));
     }
 }
 
+
+//SET_POSITION
 template <typename T>
 void AbletonTrackData<T>::set_position(int index, int would_be_width){
     int num_horizontal = min(floor(ofGetWidth() / min_width), floor(ofGetWidth() / would_be_width));
@@ -134,11 +151,15 @@ void AbletonTrackData<T>::set_position(int index, int would_be_width){
     
 }
 
+
+//GET_GAIN
 template <typename T>
 ofParameter<T>* AbletonTrackData<T>::get_gain(){
     return &gain;
 }
 
+
+//GET_LEVEL
 template <typename T>
 T AbletonTrackData<T>::get_level(){
     if (&lpf != NULL){
@@ -148,11 +169,15 @@ T AbletonTrackData<T>::get_level(){
     }
 }
 
+
+//GET_ADDRESS
 template <typename T>
 std::string AbletonTrackData<T>::get_address(){
     return address_param.get();
 }
 
+
+//SEND_OSC
 template <typename T>
 bool AbletonTrackData<T>::send_osc(){
     if (!bool_send_osc){
@@ -163,6 +188,8 @@ bool AbletonTrackData<T>::send_osc(){
 }
 
 
+
+//COMPARE_NAME
 template <typename T>
 bool AbletonTrackData<T>::compare_name(std::string other_name){
     if (name.size() == other_name.size()){
@@ -172,6 +199,17 @@ bool AbletonTrackData<T>::compare_name(std::string other_name){
     return false;
 }
 
+
+
+//HAS_GAIN_LISTENER
+template <typename T>
+bool AbletonTrackData<T>::has_gain_listener(){
+    return this->gain_listener != nullptr;
+}
+
+
+
+//SET_NAME
 template <typename T>
 void AbletonTrackData<T>::set_name(std::string name){
     this->name = name;
@@ -179,6 +217,9 @@ void AbletonTrackData<T>::set_name(std::string name){
     this->params.setName(name);
 }
 
+
+
+//SET_FILTER_SPEED
 template <typename T>
 void AbletonTrackData<T>::set_filter_speed(float filter_speed){
     this->lpf.set_filter_speed(filter_speed);

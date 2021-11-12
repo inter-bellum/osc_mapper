@@ -3,16 +3,32 @@
 #include "ofxOsc.h"
 #include "AbletonTrackData.hpp"
 
+#define OSC_SENDER_PORT 4201
+
 std::vector<AbletonTrackData<float>> ATD;
 
 ofxOscReceiver osc_rec;
 ofxOscSender osc_send;
 
+ofxPanel* IP_panel;
+ofParameter<std::string> ip_address;
+ofParameter<float> framerate_param;
+
 
 //--------------------------------------------------------------
 void ofApp::setup(){
     osc_rec.setup(6969);
-    osc_send.setup("localhost", 4201);
+    osc_send.setup("localhost", OSC_SENDER_PORT);
+
+    static ofxPanel IP_pan;
+    IP_panel = &IP_pan;
+    IP_panel->setup("ip_address");
+    IP_panel->add(ip_address.set("localhost"));
+    IP_panel->add(framerate_param.set("framerate", 0., 0., 120));
+    
+    ip_address.addListener(this, &ofApp::ip_addr_changed);
+    
+    ofSetFrameRate(200);
 }
 
 //--------------------------------------------------------------
@@ -29,7 +45,9 @@ void ofApp::update(){
                 ATD.resize(track_count);
                 for (auto i = 0 ; i < track_count; i++){
                     AbletonTrackData<float>* current = &ATD[i];
-                    current->get_gain()->addListener(current, &AbletonTrackData<float>::set_gain);
+                    if (!current->has_gain_listener()){
+                        current->get_gain()->addListener(current, &AbletonTrackData<float>::set_gain);
+                    }
                     ATD.at(i).set_position(i, ofGetWidth() / track_count);
                 }
             }
@@ -62,16 +80,19 @@ void ofApp::update(){
         }
     }
     
+    framerate_param.set(ofGetFrameRate());
     
 }
 
 //--------------------------------------------------------------
 void ofApp::draw(){
     ofBackground(255, 255, 255);
-
+    
     for (int i = 0; i < ATD.size(); i++){
         ATD[i].draw();
     }
+    
+    IP_panel->draw();
 }
 
 //--------------------------------------------------------------
@@ -130,7 +151,7 @@ void ofApp::dragEvent(ofDragInfo dragInfo){
 }
 
 //--------------------------------------------------------------
-//void ofApp::set_gain(void* adt, float value){
-//    (AbletonTrackData<float> adt)->set_gain(value);
-//}
+void ofApp::ip_addr_changed(std::string &new_ip){
+    osc_send.setup(new_ip, OSC_SENDER_PORT);
+}
 
