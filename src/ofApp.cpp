@@ -15,6 +15,8 @@ ofxPanel* IP_panel;
 ofParameter<std::string> ip_address;
 ofParameter<float> framerate_param;
 
+ofParameter<bool> save_state_button;
+
 
 //--------------------------------------------------------------
 void ofApp::setup(){
@@ -23,11 +25,14 @@ void ofApp::setup(){
 
     static ofxPanel IP_pan;
     IP_panel = &IP_pan;
-    IP_panel->setup("ip_address");
+    IP_panel->setup("settings");
     IP_panel->add(ip_address.set("localhost"));
     IP_panel->add(framerate_param.set("framerate", 0., 0., 120));
+    IP_panel->add(save_state_button.set("save parameters", 0));
     
     ip_address.addListener(this, &ofApp::ip_addr_changed);
+    
+    save_state_button.addListener(this, &ofApp::save_state);
     
     ofSetFrameRate(200);
 }
@@ -179,4 +184,71 @@ void ofApp::dragEvent(ofDragInfo dragInfo){
 void ofApp::ip_addr_changed(std::string &new_ip){
     osc_send.setup(new_ip, OSC_SENDER_PORT);
 }
+
+//--------------------------------------------------------------
+void ofApp::save_state(bool & save){
+    if (save){
+        ofFile file;
+        ofJson state;
+        state["num_tracks"] = active_tracks;
+        for (int i = 0; i < active_tracks; i++){
+            ofJson this_object;
+            AbletonTrackData<float>* current = &ATD.at(i);
+            
+            this_object["id"] = i;
+            this_object["name"] = current->get_name();
+            this_object["address"] = current->get_address();
+            this_object["gain"] = current->get_gain()->get();
+            this_object["lpf_speed"] = current->get_lpf_speed()->get();
+            float lo, hi;
+            std::tie(lo, hi) = current->get_threshold();
+            this_object["threshold"]["lo"] = lo;
+            this_object["threshold"]["hi"] = hi;
+            
+            state["data"].push_back(this_object);
+        }
+        
+        save_state_button.set(false);
+        
+        std::cout << "Saving json to " << ofToDataPath("osc_mapper_state.json") << std::endl;
+        file.open(ofToDataPath("osc_mapper_state.json"), ofFile::ReadWrite, false);
+        
+        ofBuffer file_buffer;
+        file_buffer.set(state.dump());
+        
+        if (!file.exists()){
+            file.create();
+        }
+        file.writeFromBuffer(file_buffer);
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

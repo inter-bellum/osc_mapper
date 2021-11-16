@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <string>
+#include <tuple>
 #include "ofxGui.h"
 #include "LowPassFilter.hpp"
 #include "ofApp.h"
@@ -69,6 +70,7 @@ public:
     T get_level();
     T get_output();
     std::string get_address();
+    std::string get_name();
     bool send_osc();
     void set_level(T new_level);
     void set_gain(float &new_gain);
@@ -79,6 +81,7 @@ public:
     ofParameter<T>* get_gain();
     ofParameter<std::string>* get_addr_param();
     ofParameter<float>* get_lpf_speed();
+    std::tuple<T, T> get_threshold();
     bool has_gain_listener();
     bool has_addr_listener();
     bool has_lpf_speed_listener();
@@ -211,11 +214,23 @@ T AbletonTrackData<T>::get_level(){
     }
 }
 
+//GET_THRESHOLD
+template <typename T>
+std::tuple<T, T> AbletonTrackData<T>::get_threshold(){
+    return std::make_tuple(lo.get(), hi.get());
+}
+
 
 //GET_ADDRESS
 template <typename T>
 std::string AbletonTrackData<T>::get_address(){
     return address_param.get();
+}
+
+//GET_NAME
+template <typename T>
+std::string AbletonTrackData<T>::get_name(){
+    return this->name;
 }
 
 
