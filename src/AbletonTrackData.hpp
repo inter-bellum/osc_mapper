@@ -21,13 +21,14 @@ class AbletonTrackData {
 private:
     LowPassFilter<T> lpf;
     std::string name = "dummy";
-    ofxPanel gui;
+    ofxGuiGroup gui;
     int min_width = 100;
     int x = 0, y = 0, width = 0, height = 0;
     
     ofParameterGroup params;
     ofParameter<T> level;
     ofParameter<T> gain;
+    ofParameter<float> lpf_speed;
     ofParameter<std::string> address_param;
     bool bool_send_osc = false;
     
@@ -36,6 +37,8 @@ private:
     ofParameter<T> hi;
     
     ofEventListener* gain_listener = nullptr;
+    ofEventListener* lpf_speed_listener = nullptr;
+    ofEventListener* addr_listener = nullptr;
     
     static const int history_count = 50;
     T history[history_count];
@@ -45,29 +48,23 @@ private:
     
     uint8_t index;
     
+    bool init_completed = false;
+    
 public:
     AbletonTrackData<T>() : AbletonTrackData(0, 0.99, "dummy"){
     };
     
     AbletonTrackData<T>(uint8_t index, float filter_speed, std::string name) : lpf(filter_speed){
         this->index = index;
-        params.setName(name);
-        thresh.setName("threshold");
-        params.add(level.set(name, 0., -70., 6.));
-        params.add(gain.set("gain", 1., 0., 10.));
-        
-        thresh.add(lo.set("lo", -70., -70., 6.));
-        thresh.add(hi.set("hi", 6., -70., 6.));
-        
-        params.add(thresh);
-        params.add(address_param.set("/none"));
-        gui.setup(params);
+        this->name = name;
     };
     
     ~AbletonTrackData<T>() noexcept {};
     
     void update();
     void draw();
+    void setup();
+    void de_init();
     bool compare_name(std::string name);
     T get_level();
     T get_output();
@@ -75,15 +72,48 @@ public:
     bool send_osc();
     void set_level(T new_level);
     void set_gain(float &new_gain);
-    void set_filter_speed(float speed);
+    void set_addr_param(std::string &addr);
+    void set_filter_speed(float &speed);
     void set_name(std::string name);
     void set_position(int index, int would_be_width);
     ofParameter<T>* get_gain();
+    ofParameter<std::string>* get_addr_param();
+    ofParameter<float>* get_lpf_speed();
     bool has_gain_listener();
+    bool has_addr_listener();
+    bool has_lpf_speed_listener();
     T get_filtered();
+    bool init_complete();
 };
 
 
+
+template <typename T>
+void AbletonTrackData<T>::setup(){
+    if (!this->init_completed){
+        params.setName(name);
+        thresh.setName("threshold");
+        params.add(level.set(name, 0., -70., 6.));
+        params.add(gain.set("gain", 1., 0., 10.));
+        params.add(lpf_speed.set("lpf speed", 0.99, 0., 1.));
+        
+        thresh.add(lo.set("lo", -70., -70., 6.));
+        thresh.add(hi.set("hi", 6., -70., 6.));
+        
+        params.add(thresh);
+        params.add(address_param.set("/none"));
+        gui.setup(params);
+        this->init_completed = true;
+    }
+}
+
+template <typename T>
+void AbletonTrackData<T>::de_init(){
+    gui.clear();
+    params.clear();
+    thresh.clear();
+    this->init_completed = false;
+}
 
 //SET_GAIN
 template <typename T>
@@ -158,6 +188,18 @@ ofParameter<T>* AbletonTrackData<T>::get_gain(){
     return &gain;
 }
 
+//GET ADDR_PARAM
+template <typename T>
+ofParameter<std::string>* AbletonTrackData<T>::get_addr_param(){
+    return &address_param;
+}
+
+//GET LPF FILTER SPEED
+template <typename T>
+ofParameter<float>* AbletonTrackData<T>::get_lpf_speed(){
+    return &lpf_speed;
+}
+
 
 //GET_LEVEL
 template <typename T>
@@ -181,7 +223,8 @@ std::string AbletonTrackData<T>::get_address(){
 template <typename T>
 bool AbletonTrackData<T>::send_osc(){
     if (!bool_send_osc){
-        bool_send_osc = address_param.get().compare("/none") != 0;
+        std::string addr = address_param.get();
+        bool_send_osc = addr.compare("/none") != 0 && addr.compare("") != 0;
     }
     
     return bool_send_osc;
@@ -208,6 +251,20 @@ bool AbletonTrackData<T>::has_gain_listener(){
 }
 
 
+//HAS_ADDR_LISTENER
+template <typename T>
+bool AbletonTrackData<T>::has_addr_listener(){
+    return this->addr_listener != nullptr;
+}
+
+
+//HAS LPF_SPEED_LISTENER
+template <typename T>
+bool AbletonTrackData<T>::has_lpf_speed_listener(){
+    return this->lpf_speed_listener != nullptr;
+}
+
+
 
 //SET_NAME
 template <typename T>
@@ -217,13 +274,26 @@ void AbletonTrackData<T>::set_name(std::string name){
     this->params.setName(name);
 }
 
+//SET_ADDR
+template <typename T>
+void AbletonTrackData<T>::set_addr_param(std::string &addr){
+    if (addr != address_param.get()){
+        bool_send_osc = false;
+    }
+}
+
 
 
 //SET_FILTER_SPEED
 template <typename T>
-void AbletonTrackData<T>::set_filter_speed(float filter_speed){
+void AbletonTrackData<T>::set_filter_speed(float &filter_speed){
     this->lpf.set_filter_speed(filter_speed);
 }
 
+
+template <typename T>
+bool AbletonTrackData<T>::init_complete(){
+    return init_completed;
+}
 
 #endif /* AbletonTrackData_hpp */

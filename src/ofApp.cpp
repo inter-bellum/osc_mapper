@@ -5,7 +5,8 @@
 
 #define OSC_SENDER_PORT 4201
 
-std::vector<AbletonTrackData<float>> ATD;
+int active_tracks = 0;
+std::vector<AbletonTrackData<float>> ATD(100);
 
 ofxOscReceiver osc_rec;
 ofxOscSender osc_send;
@@ -42,11 +43,32 @@ void ofApp::update(){
             //if the number of tracks changed
             if (ATD.size() != parsed_string.size()){
                 auto track_count = parsed_string.size();
-                ATD.resize(track_count);
+                if (track_count != active_tracks){
+                    for (auto i = 0; i < track_count; i++){
+                        ATD.at(i).setup();
+                    }
+                    
+                    if (active_tracks > track_count){
+                        for (int i = track_count; i < active_tracks; i++){
+                            ATD.at(i).de_init();
+                        }
+                    }
+                    
+                    active_tracks = track_count;
+                }
+                
                 for (auto i = 0 ; i < track_count; i++){
-                    AbletonTrackData<float>* current = &ATD[i];
+                    AbletonTrackData<float>* current = &ATD.at(i);
                     if (!current->has_gain_listener()){
                         current->get_gain()->addListener(current, &AbletonTrackData<float>::set_gain);
+                    }
+                    
+                    if (!current->has_addr_listener()){
+                        current->get_addr_param()->addListener(current, &AbletonTrackData<float>::set_addr_param);
+                    }
+                    
+                    if (!current->has_lpf_speed_listener()){
+                        current->get_lpf_speed()->addListener(current, &AbletonTrackData<float>::set_filter_speed);
                     }
                     ATD.at(i).set_position(i, ofGetWidth() / track_count);
                 }
@@ -69,13 +91,14 @@ void ofApp::update(){
     
     
     //update the lowpass filter
-    for (int i = 0; i < ATD.size(); i++){
-        ATD[i].update();
+    for (int i = 0; i < active_tracks; i++){
+        AbletonTrackData<float>* current = &ATD.at(i);
+        current->update();
         
-        if (ATD[i].send_osc()){
+        if (current->send_osc()){
             ofxOscMessage msg;
-            msg.setAddress(ATD[i].get_address());
-            msg.addFloatArg(ATD[i].get_output());
+            msg.setAddress(current->get_address());
+            msg.addFloatArg(current->get_output());
             osc_send.sendMessage(msg);
         }
     }
@@ -88,8 +111,10 @@ void ofApp::update(){
 void ofApp::draw(){
     ofBackground(255, 255, 255);
     
-    for (int i = 0; i < ATD.size(); i++){
-        ATD[i].draw();
+    for (int i = 0; i < active_tracks; i++){
+        if (ATD.at(i).init_complete()){
+            ATD.at(i).draw();
+        }
     }
     
     IP_panel->draw();
