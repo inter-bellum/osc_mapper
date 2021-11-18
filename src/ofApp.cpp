@@ -6,6 +6,7 @@
 #define OSC_SENDER_PORT 4201
 
 int active_tracks = 0;
+
 std::vector<AbletonTrackData<float>> ATD(100);
 
 ofxOscReceiver osc_rec;
@@ -16,6 +17,7 @@ ofParameter<std::string> ip_address;
 ofParameter<float> framerate_param;
 
 ofParameter<bool> save_state_button;
+ofParameter<bool> restore_state_button;
 
 
 //--------------------------------------------------------------
@@ -29,10 +31,12 @@ void ofApp::setup(){
     IP_panel->add(ip_address.set("localhost"));
     IP_panel->add(framerate_param.set("framerate", 0., 0., 120));
     IP_panel->add(save_state_button.set("save parameters", 0));
+    IP_panel->add(restore_state_button.set("restore parameters", 0));
     
     ip_address.addListener(this, &ofApp::ip_addr_changed);
     
     save_state_button.addListener(this, &ofApp::save_state);
+    restore_state_button.addListener(this, &ofApp::restore_state);
     
     ofSetFrameRate(200);
 }
@@ -50,7 +54,7 @@ void ofApp::update(){
                 auto track_count = parsed_string.size();
                 if (track_count != active_tracks){
                     for (auto i = 0; i < track_count; i++){
-                        ATD.at(i).setup();
+                        ATD.at(i).setup(i);
                     }
                     
                     if (active_tracks > track_count){
@@ -63,18 +67,6 @@ void ofApp::update(){
                 }
                 
                 for (auto i = 0 ; i < track_count; i++){
-                    AbletonTrackData<float>* current = &ATD.at(i);
-                    if (!current->has_gain_listener()){
-                        current->get_gain()->addListener(current, &AbletonTrackData<float>::set_gain);
-                    }
-                    
-                    if (!current->has_addr_listener()){
-                        current->get_addr_param()->addListener(current, &AbletonTrackData<float>::set_addr_param);
-                    }
-                    
-                    if (!current->has_lpf_speed_listener()){
-                        current->get_lpf_speed()->addListener(current, &AbletonTrackData<float>::set_filter_speed);
-                    }
                     ATD.at(i).set_position(i, ofGetWidth() / track_count);
                 }
             }
@@ -86,10 +78,12 @@ void ofApp::update(){
                 std::string name = sub_array.at(1);
                 float value = sub_array.at(2);
                 
-                if (!ATD.at(idx).compare_name(name)){
-                    ATD.at(idx).set_name(name);
+                AbletonTrackData<float>* current = &ATD.at(idx);
+                
+                if (!current->compare_name(name)){
+                    current->set_name(name);
                 }
-                ATD.at(idx).set_level(value);
+                current->set_level(value);
             }
         }
     }
@@ -188,42 +182,72 @@ void ofApp::ip_addr_changed(std::string &new_ip){
 //--------------------------------------------------------------
 void ofApp::save_state(bool & save){
     if (save){
-        ofFile file;
-        ofJson state;
-        state["num_tracks"] = active_tracks;
-        for (int i = 0; i < active_tracks; i++){
-            ofJson this_object;
-            AbletonTrackData<float>* current = &ATD.at(i);
+        ofFileDialogResult res = ofSystemSaveDialog("osc_mapper.json", "Saving osc mapping config");
+        
+        if (res.bSuccess){
+            ofFile file;
+            ofJson state;
+            state["num_tracks"] = active_tracks;
+            state["ip_address"] = ip_address;
+            for (int i = 0; i < active_tracks; i++){
+                ofJson this_object;
+                AbletonTrackData<float>* current = &ATD.at(i);
+                
+                this_object = current->to_json();
+                
+                state["data"].push_back(this_object);
+            }
             
-            this_object["id"] = i;
-            this_object["name"] = current->get_name();
-            this_object["address"] = current->get_address();
-            this_object["gain"] = current->get_gain()->get();
-            this_object["lpf_speed"] = current->get_lpf_speed()->get();
-            float lo, hi;
-            std::tie(lo, hi) = current->get_threshold();
-            this_object["threshold"]["lo"] = lo;
-            this_object["threshold"]["hi"] = hi;
+            std::cout << "Saving json to " << res.getPath() << std::endl;
+            file.open(res.getPath(), ofFile::ReadWrite, false);
             
-            state["data"].push_back(this_object);
-        }
-        
-        save_state_button.set(false);
-        
-        std::cout << "Saving json to " << ofToDataPath("osc_mapper_state.json") << std::endl;
-        file.open(ofToDataPath("osc_mapper_state.json"), ofFile::ReadWrite, false);
-        
-        ofBuffer file_buffer;
-        file_buffer.set(state.dump());
-        
-        if (!file.exists()){
+            ofBuffer file_buffer;
+            file_buffer.set(state.dump());
+            
+            if (file.exists()){
+                file.remove();
+            }
+            
             file.create();
+            
+            file.writeFromBuffer(file_buffer);
+            
+            save_state_button.set(false);
         }
-        file.writeFromBuffer(file_buffer);
     }
 }
 
 
+//--------------------------------------------------------------
+void ofApp::restore_state(bool & restore){
+    ofFileDialogResult res = ofSystemLoadDialog("Select json parameter file");
+    
+    if (res.bSuccess){
+        ofFile f;
+        if (f.open(res.getPath()) && f.peek() != std::ifstream::traits_type::eof()){
+            ofJson settings = ofLoadJson(res.getPath());
+            
+            auto active_tracks_json = settings["num_tracks"].get<int>();
+            for (auto i = 0; i < active_tracks_json; i++){
+                AbletonTrackData<float>* current = &ATD.at(i);
+                
+                ofJson data_package = settings["data"].at(i);
+                
+                current->from_json(data_package);
+                
+                current->set_position(i, ofGetWidth() / active_tracks_json);
+                
+            }
+            
+            active_tracks = active_tracks_json;
+            ip_address.set(settings["ip_address"].get<std::string>());
+        } else {
+            ofSystemAlertDialog("File was empty or could not be parsed");
+        }
+    }
+    
+    restore_state_button.set(false);
+}
 
 
 

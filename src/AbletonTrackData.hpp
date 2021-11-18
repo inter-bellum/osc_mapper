@@ -37,10 +37,6 @@ private:
     ofParameter<T> lo;
     ofParameter<T> hi;
     
-    ofEventListener* gain_listener = nullptr;
-    ofEventListener* lpf_speed_listener = nullptr;
-    ofEventListener* addr_listener = nullptr;
-    
     static const int history_count = 50;
     T history[history_count];
     int history_index = 0;
@@ -52,11 +48,10 @@ private:
     bool init_completed = false;
     
 public:
-    AbletonTrackData<T>() : AbletonTrackData(0, 0.99, "dummy"){
+    AbletonTrackData<T>() : AbletonTrackData(0.99, "dummy"){
     };
     
-    AbletonTrackData<T>(uint8_t index, float filter_speed, std::string name) : lpf(filter_speed){
-        this->index = index;
+    AbletonTrackData<T>(float filter_speed, std::string name) : lpf(filter_speed){
         this->name = name;
     };
     
@@ -64,11 +59,14 @@ public:
     
     void update();
     void draw();
-    void setup();
+    void setup(int index);
+    void setup_after_json_load();
     void de_init();
     bool compare_name(std::string name);
     T get_level();
     T get_output();
+    ofJson to_json();
+    void from_json(ofJson &json);
     std::string get_address();
     std::string get_name();
     bool send_osc();
@@ -82,18 +80,16 @@ public:
     ofParameter<std::string>* get_addr_param();
     ofParameter<float>* get_lpf_speed();
     std::tuple<T, T> get_threshold();
-    bool has_gain_listener();
-    bool has_addr_listener();
-    bool has_lpf_speed_listener();
     T get_filtered();
     bool init_complete();
 };
 
 
-
+//SETUP
 template <typename T>
-void AbletonTrackData<T>::setup(){
+void AbletonTrackData<T>::setup(int index){
     if (!this->init_completed){
+        this->index = index;
         params.setName(name);
         thresh.setName("threshold");
         params.add(level.set(name, 0., -70., 6.));
@@ -106,8 +102,31 @@ void AbletonTrackData<T>::setup(){
         params.add(thresh);
         params.add(address_param.set("/none"));
         gui.setup(params);
+        
+        gain.addListener(this, &AbletonTrackData<T>::set_gain);
+        address_param.addListener(this, &AbletonTrackData<T>::set_addr_param);
+        lpf_speed.addListener(this, &AbletonTrackData<T>::set_filter_speed);
+        
         this->init_completed = true;
     }
+}
+
+//SETUP
+template <typename T>
+void AbletonTrackData<T>::setup_after_json_load(){
+    params.setName(name);
+    thresh.setName("threshold");
+    params.add(level.set(name, 0., -70., 6.));
+    params.add(gain.set("gain", gain.get(), 0., 10.));
+    params.add(lpf_speed.set("lpf speed", lpf_speed.get(), 0., 1.));
+    
+    thresh.add(lo.set("lo", lo.get(), -70., 6.));
+    thresh.add(hi.set("hi", hi.get(), -70., 6.));
+    
+    params.add(thresh);
+    params.add(address_param.set(address_param.get()));
+    gui.setup(params);
+    this->init_completed = true;
 }
 
 template <typename T>
@@ -181,7 +200,42 @@ void AbletonTrackData<T>::set_position(int index, int would_be_width){
     this->gui.setShape(0, 0, width, height);
     this->gui.setWidthElements(width);
     this->gui.setPosition(x, y);
+}
+
+//TO_JSON
+template <typename T>
+ofJson AbletonTrackData<T>::to_json(){
+    ofJson this_object;
+    this_object["id"] = index;
+    this_object["name"] = this->get_name();
+    this_object["address"] = this->get_address();
+    this_object["gain"] = this->gain.get();
+    this_object["lpf_speed"] = this->get_lpf_speed()->get();
+    T lo, hi;
+    std::tie(lo, hi) = this->get_threshold();
+    this_object["threshold"]["lo"] = lo;
+    this_object["threshold"]["hi"] = hi;
     
+    return this_object;
+}
+
+
+//FROM_JSON
+template <typename T>
+void AbletonTrackData<T>::from_json(ofJson &json){
+    gui.clear();
+    params.clear();
+    thresh.clear();
+    
+    this->index = json["id"].get<int>();
+    this->name = json["name"].get<std::string>();
+    address_param.set(json["address"].get<std::string>());
+    gain.set(json["gain"].get<T>());
+    lpf_speed.set(json["lpf_speed"].get<float>());
+    lo.set(json["threshold"]["lo"].get<T>());
+    hi.set(json["threshold"]["hi"].get<T>());
+    
+    this->setup_after_json_load();
 }
 
 
@@ -255,28 +309,6 @@ bool AbletonTrackData<T>::compare_name(std::string other_name){
     }
     
     return false;
-}
-
-
-
-//HAS_GAIN_LISTENER
-template <typename T>
-bool AbletonTrackData<T>::has_gain_listener(){
-    return this->gain_listener != nullptr;
-}
-
-
-//HAS_ADDR_LISTENER
-template <typename T>
-bool AbletonTrackData<T>::has_addr_listener(){
-    return this->addr_listener != nullptr;
-}
-
-
-//HAS LPF_SPEED_LISTENER
-template <typename T>
-bool AbletonTrackData<T>::has_lpf_speed_listener(){
-    return this->lpf_speed_listener != nullptr;
 }
 
 

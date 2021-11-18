@@ -23,5 +23,6 @@ class ofApp : public ofBaseApp{
     
         void ip_addr_changed(std::string &new_ip);
         void save_state(bool & save);
+        void restore_state(bool & restore);
 		
 };
