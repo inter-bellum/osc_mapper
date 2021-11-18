@@ -2,6 +2,7 @@
 #include "ofxGui.h"
 #include "ofxOsc.h"
 #include "AbletonTrackData.hpp"
+#include "OscThread.hpp"
 
 #define OSC_SENDER_PORT 4201
 
@@ -19,6 +20,7 @@ ofParameter<float> framerate_param;
 ofParameter<bool> save_state_button;
 ofParameter<bool> restore_state_button;
 
+OscThread osc_sender;
 
 //--------------------------------------------------------------
 void ofApp::setup(){
@@ -38,6 +40,8 @@ void ofApp::setup(){
     save_state_button.addListener(this, &ofApp::save_state);
     restore_state_button.addListener(this, &ofApp::restore_state);
     
+    osc_sender.setup("osc_sender", "localhost", OSC_SENDER_PORT);
+    
     ofSetFrameRate(200);
 }
 
@@ -50,29 +54,27 @@ void ofApp::update(){
             ofJson parsed_string = nlohmann::json::parse(data);
             
             //if the number of tracks changed
-            if (ATD.size() != parsed_string.size()){
-                auto track_count = parsed_string.size();
-                if (track_count != active_tracks){
-                    for (auto i = 0; i < track_count; i++){
-                        ATD.at(i).setup(i);
-                    }
-                    
-                    if (active_tracks > track_count){
-                        for (int i = track_count; i < active_tracks; i++){
-                            ATD.at(i).de_init();
-                        }
-                    }
-                    
-                    active_tracks = track_count;
+            auto new_track_count = parsed_string.size();
+            if (active_tracks != new_track_count){
+                for (auto i = 0; i < new_track_count; i++){
+                    ATD.at(i).setup(i);
                 }
                 
-                for (auto i = 0 ; i < track_count; i++){
-                    ATD.at(i).set_position(i, ofGetWidth() / track_count);
+                if (active_tracks > new_track_count){
+                    for (int i = new_track_count; i < active_tracks; i++){
+                        ATD.at(i).de_init();
+                    }
+                }
+                
+                active_tracks = new_track_count;
+                
+                for (auto i = 0 ; i < new_track_count; i++){
+                    ATD.at(i).set_position(i, ofGetWidth() / new_track_count);
                 }
             }
             
             //set the levels for each track
-            for (auto i = 0; i < parsed_string.size(); i++){
+            for (auto i = 0; i < active_tracks; i++){
                 auto sub_array = parsed_string.at(i);
                 uint8_t idx = sub_array.at(0);
                 std::string name = sub_array.at(1);
@@ -87,19 +89,20 @@ void ofApp::update(){
             }
         }
     }
-    
-    
+    bool sent_osc = false;
     //update the lowpass filter
     for (int i = 0; i < active_tracks; i++){
         AbletonTrackData<float>* current = &ATD.at(i);
         current->update();
         
         if (current->send_osc()){
-            ofxOscMessage msg;
-            msg.setAddress(current->get_address());
-            msg.addFloatArg(current->get_output());
-            osc_send.sendMessage(msg);
+            osc_sender.send_message(current->get_address(), current->get_output());
+            sent_osc = true;
         }
+    }
+    
+    if (sent_osc){
+        osc_sender.signal();
     }
     
     framerate_param.set(ofGetFrameRate());
@@ -246,7 +249,10 @@ void ofApp::restore_state(bool & restore){
 }
 
 
-
+void ofApp::exit(){
+    osc_sender.stopThread();
+    osc_sender.signal();
+}
 
 
 

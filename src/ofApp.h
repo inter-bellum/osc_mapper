@@ -20,6 +20,7 @@ class ofApp : public ofBaseApp{
 		void windowResized(int w, int h);
 		void dragEvent(ofDragInfo dragInfo);
 		void gotMessage(ofMessage msg);
+        void exit();
     
         void ip_addr_changed(std::string &new_ip);
         void save_state(bool & save);

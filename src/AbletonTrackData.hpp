@@ -291,11 +291,6 @@ std::string AbletonTrackData<T>::get_name(){
 //SEND_OSC
 template <typename T>
 bool AbletonTrackData<T>::send_osc(){
-    if (!bool_send_osc){
-        std::string addr = address_param.get();
-        bool_send_osc = addr.compare("/none") != 0 && addr.compare("") != 0;
-    }
-    
     return bool_send_osc;
 }
 
@@ -324,9 +319,7 @@ void AbletonTrackData<T>::set_name(std::string name){
 //SET_ADDR
 template <typename T>
 void AbletonTrackData<T>::set_addr_param(std::string &addr){
-    if (addr != address_param.get()){
-        bool_send_osc = false;
-    }
+    bool_send_osc = address_param.get().compare("/none") != 0 && address_param.get().compare("") != 0;
 }
 
 
