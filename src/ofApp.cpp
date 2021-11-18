@@ -204,10 +204,6 @@ void ofApp::save_state(bool & save){
             ofBuffer file_buffer;
             file_buffer.set(state.dump());
             
-            if (file.exists()){
-                file.remove();
-            }
-            
             file.create();
             
             file.writeFromBuffer(file_buffer);

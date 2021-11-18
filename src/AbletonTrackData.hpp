@@ -180,7 +180,7 @@ void AbletonTrackData<T>::draw(){
     int offset = history_index;
     int rect_width = (width / (float)history_count);
     ofSetColor(0);
-    ofDrawBitmapString("Out: "+ ofToString(output_value), this->x + 10,  + this->y + this->height - 80);
+    ofDrawBitmapString("Out: "+ ofToString(output_value, 3), this->x + 10,  + this->y + this->height - 80);
     
     for (int i = 0; i < history_count; i++){
         ofDrawRectangle(x + (i * rect_width), y+ height, rect_width, -(history[(i + offset) % history_count] * 10));
